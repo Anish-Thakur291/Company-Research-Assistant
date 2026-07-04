@@ -1,37 +1,81 @@
 import { NextResponse } from "next/server";
 import { generatePdfReport } from "@/lib/pdf-generator";
-import type { CompanyReport } from "@/types";
+import type { CompanyReport, Competitor, ReportSource, SwotAnalysis } from "@/types";
 
 // Ensure this runs on Node.js runtime, not edge (PDFKit needs Node.js)
 export const runtime = "nodejs";
 
+function normalizeString(value: unknown, fallback = "Not available") {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : fallback;
+  }
+  return fallback;
+}
+
+function normalizeStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+}
+
+function normalizeCompetitors(value: unknown): Competitor[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object")
+    .map((item) => ({
+      name: normalizeString(item.name, "Unknown"),
+      website: normalizeString(item.website, ""),
+    }));
+}
+
+function normalizeSources(value: unknown): ReportSource[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object")
+    .map((item) => ({
+      title: normalizeString(item.title, "Untitled source"),
+      url: normalizeString(item.url, ""),
+    }));
+}
+
+function normalizeSwot(value: unknown): SwotAnalysis {
+  if (!value || typeof value !== "object") {
+    return { strengths: [], weaknesses: [], opportunities: [], threats: [] };
+  }
+
+  const swot = value as Record<string, unknown>;
+  return {
+    strengths: normalizeStringArray(swot.strengths),
+    weaknesses: normalizeStringArray(swot.weaknesses),
+    opportunities: normalizeStringArray(swot.opportunities),
+    threats: normalizeStringArray(swot.threats),
+  };
+}
+
+function normalizeReport(report: Partial<CompanyReport> | null | undefined): CompanyReport {
+  return {
+    companyName: normalizeString(report?.companyName, "Untitled Company"),
+    website: normalizeString(report?.website),
+    phone: normalizeString(report?.phone),
+    address: normalizeString(report?.address),
+    industry: normalizeString(report?.industry),
+    founded: normalizeString(report?.founded),
+    headquarters: normalizeString(report?.headquarters),
+    productsServices: normalizeStringArray(report?.productsServices),
+    summary: typeof report?.summary === "string" ? report.summary : "",
+    painPoints: normalizeStringArray(report?.painPoints),
+    swot: normalizeSwot(report?.swot),
+    competitors: normalizeCompetitors(report?.competitors),
+    pagesCrawled: normalizeStringArray(report?.pagesCrawled),
+    sources: normalizeSources(report?.sources),
+    generatedAt: normalizeString(report?.generatedAt, new Date().toISOString()),
+  };
+}
+
 export async function POST(request: Request) {
   try {
-    const report: CompanyReport = await request.json();
-
-    if (!report?.companyName) {
-      return NextResponse.json({ error: "Invalid report data: missing companyName" }, { status: 400 });
-    }
-
-    // Validate required fields exist (may be empty strings, but must exist)
-    const criticalFields = [
-      "website",
-      "companyName",
-      "swot",
-      "competitors",
-      "pagesCrawled",
-      "sources",
-      "generatedAt",
-    ];
-
-    const missingFields = criticalFields.filter((field) => report[field as keyof CompanyReport] === undefined);
-    if (missingFields.length > 0) {
-      console.error("Missing fields in report:", { missingFields, reportKeys: Object.keys(report) });
-      return NextResponse.json(
-        { error: `Missing report fields: ${missingFields.join(", ")}` },
-        { status: 400 }
-      );
-    }
+    const payload = await request.json().catch(() => null);
+    const report = normalizeReport(payload as Partial<CompanyReport> | null | undefined);
 
     const pdfBuffer = await generatePdfReport(report);
     const safeName = report.companyName.replace(/[^a-z0-9]/gi, "_");
@@ -40,6 +84,7 @@ export async function POST(request: Request) {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="${safeName}_report.pdf"`,
+        "Cache-Control": "no-store",
       },
     });
   } catch (error) {

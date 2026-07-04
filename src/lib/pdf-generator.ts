@@ -1,102 +1,154 @@
-import PDFDocument from "pdfkit";
+import jsPDF from "jspdf";
 import type { CompanyReport } from "@/types";
 
-function collectPdfBuffer(doc: InstanceType<typeof PDFDocument>): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    doc.on("data", (chunk: Buffer) => chunks.push(chunk));
-    doc.on("end", () => resolve(Buffer.concat(chunks)));
-    doc.on("error", reject);
-  });
-}
-
-function ensureSpace(doc: InstanceType<typeof PDFDocument>, needed = 80) {
-  if (doc.y + needed > doc.page.height - 60) {
-    doc.addPage();
-  }
-}
-
 export async function generatePdfReport(report: CompanyReport): Promise<Buffer> {
-  // Use only Courier font - works in all environments including serverless
-  const doc = new PDFDocument({ 
-    margin: 50, 
-    size: "A4",
-    bufferPages: true
+  // Create PDF using jsPDF - no font file dependencies
+  const pdf = new jsPDF({
+    orientation: "portrait",
+    unit: "mm",
+    format: "a4",
   });
-  const bufferPromise = collectPdfBuffer(doc);
 
-  const accent = "#4f46e5";
-  const text = "#1e293b";
-  const muted = "#64748b";
-  const margin = 50;
-  const width = doc.page.width - margin * 2;
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const margin = 15;
+  const contentWidth = pageWidth - margin * 2;
+  let yPosition = margin;
 
-  const section = (title: string) => {
-    ensureSpace(doc, 60);
-    doc.moveDown(0.8);
-    doc.fontSize(12).fillColor(accent).text(title, { underline: true });
-    doc.moveDown(0.6);
-    doc.fillColor(text);
+  // RGB colors
+  const accentRGB = [79, 70, 229];
+  const textRGB = [30, 41, 59];
+  const mutedRGB = [100, 114, 139];
+
+  const addSection = (title: string) => {
+    // Check if we need a new page
+    if (yPosition > pageHeight - 40) {
+      pdf.addPage();
+      yPosition = margin;
+    }
+
+    pdf.setTextColor(accentRGB[0], accentRGB[1], accentRGB[2]);
+    pdf.setFontSize(12);
+    pdf.setFont("helvetica", "bold");
+    pdf.text(title, margin, yPosition);
+    yPosition += 7;
+
+    // Add line under section
+    pdf.setDrawColor(accentRGB[0], accentRGB[1], accentRGB[2]);
+    pdf.line(margin, yPosition, pageWidth - margin, yPosition);
+    yPosition += 5;
   };
 
-  const field = (label: string, value: string) => {
-    ensureSpace(doc, 20);
-    doc.fontSize(10).fillColor(muted).text(`${label}: `, {
-      continued: true,
-    });
-    doc.fillColor(text).text(value || "Not available");
+  const addField = (label: string, value: string) => {
+    if (yPosition > pageHeight - 20) {
+      pdf.addPage();
+      yPosition = margin;
+    }
+
+    pdf.setTextColor(mutedRGB[0], mutedRGB[1], mutedRGB[2]);
+    pdf.setFontSize(10);
+    pdf.setFont("helvetica", "bold");
+    const labelWidth = pdf.getTextWidth(label + ": ");
+    pdf.text(label + ": ", margin, yPosition);
+
+    pdf.setTextColor(textRGB[0], textRGB[1], textRGB[2]);
+    pdf.setFont("helvetica", "normal");
+    const wrappedValue = pdf.splitTextToSize(value || "Not available", contentWidth - labelWidth);
+    pdf.text(wrappedValue, margin + labelWidth, yPosition);
+    
+    const lineHeight = wrappedValue.length * 5;
+    yPosition += lineHeight + 3;
   };
 
-  const bulletList = (items: string[]) => {
+  const addBulletList = (items: string[]) => {
     if (items.length === 0) {
-      doc.fontSize(10).fillColor(muted).text("Not available");
+      if (yPosition > pageHeight - 20) {
+        pdf.addPage();
+        yPosition = margin;
+      }
+      pdf.setTextColor(mutedRGB[0], mutedRGB[1], mutedRGB[2]);
+      pdf.setFontSize(10);
+      pdf.text("Not available", margin + 5, yPosition);
+      yPosition += 5;
       return;
     }
+
     items.forEach((item) => {
-      ensureSpace(doc, 20);
-      doc.fontSize(10).fillColor(text).text(`• ${item}`, {
-        indent: 10,
-        width,
-      });
+      if (yPosition > pageHeight - 20) {
+        pdf.addPage();
+        yPosition = margin;
+      }
+
+      pdf.setTextColor(textRGB[0], textRGB[1], textRGB[2]);
+      pdf.setFontSize(10);
+      pdf.setFont("helvetica", "normal");
+      const wrappedItem = pdf.splitTextToSize(`• ${item}`, contentWidth - 5);
+      pdf.text(wrappedItem, margin + 5, yPosition);
+      
+      const lineHeight = wrappedItem.length * 5;
+      yPosition += lineHeight + 2;
     });
   };
 
-  doc.fontSize(20).fillColor(accent).text("Company Research Report");
-  doc.moveDown(0.3);
-  doc.fontSize(10).fillColor(muted).text(
-    `Generated on ${new Date(report.generatedAt).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    })}`
-  );
-  doc.moveDown(1);
+  // Title
+  pdf.setTextColor(accentRGB[0], accentRGB[1], accentRGB[2]);
+  pdf.setFontSize(20);
+  pdf.setFont("helvetica", "bold");
+  pdf.text("Company Research Report", margin, yPosition);
+  yPosition += 12;
 
-  section("Company Overview");
-  field("Name", report.companyName);
-  field("Website", report.website);
-  field("Phone", report.phone);
-  field("Address", report.address);
-
-  section("Business Information");
-  field("Industry", report.industry);
-  field("Founded", report.founded);
-  field("Headquarters", report.headquarters);
-
-  section("Products & Services");
-  bulletList(report.productsServices);
-
-  section("AI Summary");
-  ensureSpace(doc, 40);
-  doc.fontSize(10).fillColor(text).text(report.summary || "Not available", {
-    align: "justify",
-    width,
+  // Generated date
+  pdf.setTextColor(mutedRGB[0], mutedRGB[1], mutedRGB[2]);
+  pdf.setFontSize(10);
+  pdf.setFont("helvetica", "normal");
+  const date = new Date(report.generatedAt).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
   });
+  pdf.text(`Generated on ${date}`, margin, yPosition);
+  yPosition += 8;
 
-  section("Pain Points");
-  bulletList(report.painPoints);
+  // Company Overview
+  addSection("Company Overview");
+  addField("Name", report.companyName);
+  addField("Website", report.website);
+  addField("Phone", report.phone);
+  addField("Address", report.address);
+  yPosition += 2;
 
-  section("SWOT Analysis");
+  // Business Information
+  addSection("Business Information");
+  addField("Industry", report.industry);
+  addField("Founded", report.founded);
+  addField("Headquarters", report.headquarters);
+  yPosition += 2;
+
+  // Products & Services
+  addSection("Products & Services");
+  addBulletList(report.productsServices);
+  yPosition += 2;
+
+  // AI Summary
+  addSection("AI Summary");
+  if (yPosition > pageHeight - 30) {
+    pdf.addPage();
+    yPosition = margin;
+  }
+  pdf.setTextColor(textRGB[0], textRGB[1], textRGB[2]);
+  pdf.setFontSize(10);
+  pdf.setFont("helvetica", "normal");
+  const summaryLines = pdf.splitTextToSize(report.summary || "Not available", contentWidth);
+  pdf.text(summaryLines, margin, yPosition);
+  yPosition += summaryLines.length * 5 + 5;
+
+  // Pain Points
+  addSection("Pain Points");
+  addBulletList(report.painPoints);
+  yPosition += 2;
+
+  // SWOT Analysis
+  addSection("SWOT Analysis");
   const swotGroups = [
     ["Strengths", report.swot.strengths],
     ["Weaknesses", report.swot.weaknesses],
@@ -105,57 +157,98 @@ export async function generatePdfReport(report: CompanyReport): Promise<Buffer> 
   ] as const;
 
   swotGroups.forEach(([label, items]) => {
-    ensureSpace(doc, 30);
-    doc.fontSize(10).fillColor(accent).text(label);
-    doc.moveDown(0.2);
-    bulletList(items);
-    doc.moveDown(0.4);
+    if (yPosition > pageHeight - 30) {
+      pdf.addPage();
+      yPosition = margin;
+    }
+
+    pdf.setTextColor(accentRGB[0], accentRGB[1], accentRGB[2]);
+    pdf.setFontSize(11);
+    pdf.setFont("helvetica", "bold");
+    pdf.text(label, margin, yPosition);
+    yPosition += 5;
+
+    addBulletList(items);
   });
 
-  section("Competitors");
+  // Competitors
+  addSection("Competitors");
   if (report.competitors.length === 0) {
-    doc.fontSize(10).fillColor(muted).text("No competitors identified.");
+    pdf.setTextColor(mutedRGB[0], mutedRGB[1], mutedRGB[2]);
+    pdf.setFontSize(10);
+    pdf.text("No competitors identified.", margin, yPosition);
+    yPosition += 5;
   } else {
     report.competitors.forEach((comp, i) => {
-      ensureSpace(doc, 30);
-      doc.fontSize(10).fillColor(text).text(`${i + 1}. ${comp.name}`);
-      doc.fillColor(muted).text(comp.website, { link: comp.website });
-      doc.moveDown(0.3);
+      if (yPosition > pageHeight - 20) {
+        pdf.addPage();
+        yPosition = margin;
+      }
+
+      pdf.setTextColor(textRGB[0], textRGB[1], textRGB[2]);
+      pdf.setFontSize(10);
+      pdf.setFont("helvetica", "bold");
+      pdf.text(`${i + 1}. ${comp.name}`, margin, yPosition);
+      yPosition += 5;
+
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(mutedRGB[0], mutedRGB[1], mutedRGB[2]);
+      pdf.text(comp.website, margin + 5, yPosition);
+      yPosition += 5;
     });
   }
 
-  section("Pages Crawled");
+  // Pages Crawled
+  addSection("Pages Crawled");
   if (report.pagesCrawled.length === 0) {
-    doc.fontSize(10).fillColor(muted).text("No pages crawled.");
+    pdf.setTextColor(mutedRGB[0], mutedRGB[1], mutedRGB[2]);
+    pdf.setFontSize(10);
+    pdf.text("No pages crawled.", margin, yPosition);
+    yPosition += 5;
   } else {
-    report.pagesCrawled.forEach((url) => {
-      ensureSpace(doc, 20);
-      doc.fontSize(9).fillColor(text).text(`• ${url}`, { link: url, width });
-    });
+    addBulletList(report.pagesCrawled);
   }
 
-  section("Sources");
+  // Sources
+  addSection("Sources");
   if (report.sources.length === 0) {
-    doc.fontSize(10).fillColor(muted).text("No sources recorded.");
+    pdf.setTextColor(mutedRGB[0], mutedRGB[1], mutedRGB[2]);
+    pdf.setFontSize(10);
+    pdf.text("No sources recorded.", margin, yPosition);
+    yPosition += 5;
   } else {
     report.sources.forEach((source) => {
-      ensureSpace(doc, 30);
-      doc.fontSize(10).fillColor(text).text(source.title);
-      doc.fontSize(9).fillColor(muted).text(source.url, { link: source.url, width });
-      doc.moveDown(0.3);
+      if (yPosition > pageHeight - 20) {
+        pdf.addPage();
+        yPosition = margin;
+      }
+
+      pdf.setTextColor(textRGB[0], textRGB[1], textRGB[2]);
+      pdf.setFontSize(10);
+      pdf.setFont("helvetica", "bold");
+      pdf.text(source.title, margin, yPosition);
+      yPosition += 5;
+
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(mutedRGB[0], mutedRGB[1], mutedRGB[2]);
+      pdf.setFontSize(9);
+      const urlLines = pdf.splitTextToSize(source.url, contentWidth);
+      pdf.text(urlLines, margin + 5, yPosition);
+      yPosition += urlLines.length * 4 + 3;
     });
   }
 
-  doc
-    .fontSize(8)
-    .fillColor(muted)
-    .text(
-      "This report was generated by AI using publicly available information. Verify critical details independently.",
-      margin,
-      doc.page.height - 40,
-      { align: "center", width }
-    );
+  // Footer
+  pdf.setFontSize(8);
+  pdf.setTextColor(mutedRGB[0], mutedRGB[1], mutedRGB[2]);
+  pdf.text(
+    "This report was generated by AI using publicly available information. Verify critical details independently.",
+    margin,
+    pageHeight - 10,
+    { align: "center", maxWidth: contentWidth }
+  );
 
-  doc.end();
-  return bufferPromise;
+  // Return as Buffer
+  const pdfBytes = pdf.output("arraybuffer");
+  return Buffer.from(pdfBytes);
 }
