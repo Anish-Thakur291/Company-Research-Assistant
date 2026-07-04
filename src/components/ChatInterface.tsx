@@ -5,7 +5,7 @@ import { Send, Sparkles, User } from "lucide-react";
 import { getApplicantSettings } from "./Sidebar";
 import { ProgressSteps } from "./ProgressSteps";
 import { ReportCard } from "./ReportCard";
-import type { CompanyReport, ProgressEvent, ResearchStep } from "@/types";
+import type { CompanyReport, ResearchStep } from "@/types";
 
 interface Message {
   id: string;
@@ -86,6 +86,29 @@ export function ChatInterface({ model }: ChatInterfaceProps) {
     }
   }, []);
 
+  const updateProgress = (
+    progressId: string,
+    step: ResearchStep,
+    message: string
+  ) => {
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === progressId ? { ...m, step, stepMessage: message } : m
+      )
+    );
+  };
+
+  const postJson = async (url: string, body: unknown) => {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? "Request failed");
+    return data;
+  };
+
   const handleSubmit = async () => {
     const query = input.trim();
     if (!query || loading) return;
@@ -113,57 +136,57 @@ export function ChatInterface({ model }: ChatInterfaceProps) {
     ]);
 
     try {
-      const response = await fetch("/api/research", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query, model }),
+      updateProgress(progressId, "searching", "Finding official website...");
+      const { companyName, website } = await postJson("/api/research/resolve", {
+        query,
       });
 
-      if (!response.ok || !response.body) {
-        throw new Error("Research request failed");
-      }
+      updateProgress(
+        progressId,
+        "crawling",
+        `Crawling ${website} for key pages...`
+      );
+      const { pages, content } = await postJson("/api/research/crawl", {
+        website,
+      });
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
+      updateProgress(
+        progressId,
+        "collecting",
+        "Collecting additional public information..."
+      );
+      const { companyInfo, competitors } = await postJson(
+        "/api/research/collect",
+        { companyName, website, contentHint: content?.slice(0, 500) }
+      );
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+      updateProgress(
+        progressId,
+        "analyzing",
+        "AI is analyzing company data and identifying competitors..."
+      );
+      const { report } = await postJson("/api/research/analyze", {
+        companyName,
+        website,
+        crawledContent: content,
+        crawledPages: pages,
+        companyInfo,
+        competitors,
+        model,
+      });
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
+      updateProgress(progressId, "generating", "Finalizing research report...");
 
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-
-          const event: ProgressEvent = JSON.parse(line.slice(6));
-
-          if (event.type === "progress") {
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === progressId
-                  ? { ...m, step: event.step, stepMessage: event.message }
-                  : m
-              )
-            );
-          } else if (event.type === "complete" && event.data) {
-            setMessages((prev) => [
-              ...prev.filter((m) => m.id !== progressId),
-              {
-                id: crypto.randomUUID(),
-                role: "assistant",
-                content: `Research complete for ${event.data!.companyName}. Here's your comprehensive report:`,
-                report: event.data,
-              },
-            ]);
-            await notifyDiscord(event.data);
-          } else if (event.type === "error") {
-            throw new Error(event.error ?? "Research failed");
-          }
-        }
-      }
+      setMessages((prev) => [
+        ...prev.filter((m) => m.id !== progressId),
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: `Research complete for ${report.companyName}. Here's your comprehensive report:`,
+          report,
+        },
+      ]);
+      await notifyDiscord(report);
     } catch (error) {
       const msg = error instanceof Error ? error.message : "Something went wrong";
       setMessages((prev) => [
