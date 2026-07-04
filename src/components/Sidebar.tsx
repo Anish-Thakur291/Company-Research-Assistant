@@ -9,7 +9,6 @@ import {
   X,
   Menu,
   Save,
-  MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ConfigStatus } from "./ConfigStatus";
@@ -83,15 +82,8 @@ export function Sidebar({
         />
 
         <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <MessageSquare className="h-3.5 w-3.5 text-slate-500" />
-            <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
-              Discord Integration
-            </p>
-          </div>
-          <p className="text-xs text-slate-500">
-            Bot token and channel ID are configured via server environment variables.
-            Enter your details below to attach them to auto-sent reports.
+          <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
+            Applicant Details
           </p>
           <input
             type="text"
@@ -125,7 +117,7 @@ export function Sidebar({
           className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-400 transition hover:bg-slate-800 hover:text-slate-200"
         >
           <Settings className="h-4 w-4" />
-          Discord Settings
+          Settings
         </Link>
       </div>
 

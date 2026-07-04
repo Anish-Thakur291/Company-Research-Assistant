@@ -7,7 +7,6 @@ import { cn } from "@/lib/utils";
 interface ConfigStatus {
   openrouter: boolean;
   serper: boolean;
-  discord: boolean;
 }
 
 export function ConfigStatus() {
@@ -16,8 +15,8 @@ export function ConfigStatus() {
   useEffect(() => {
     fetch("/api/config")
       .then((r) => r.json())
-      .then(setConfig)
-      .catch(() => setConfig({ openrouter: false, serper: false, discord: false }));
+      .then((data) => setConfig({ openrouter: !!data.openrouter, serper: !!data.serper }))
+      .catch(() => setConfig({ openrouter: false, serper: false }));
   }, []);
 
   if (!config) {
@@ -32,7 +31,6 @@ export function ConfigStatus() {
   const items = [
     { label: "OpenRouter", ok: config.openrouter },
     { label: "Serper.dev", ok: config.serper },
-    { label: "Discord", ok: config.discord },
   ];
 
   return (

@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Send, Sparkles, User } from "lucide-react";
-import { getApplicantSettings } from "./Sidebar";
 import { ProgressSteps } from "./ProgressSteps";
 import { ReportCard } from "./ReportCard";
 import type { CompanyReport, ResearchStep } from "@/types";
@@ -82,21 +81,6 @@ export function ChatInterface({ model }: ChatInterfaceProps) {
       console.error("PDF download error:", error);
     } finally {
       setDownloading(false);
-    }
-  }, []);
-
-  const notifyDiscord = useCallback(async (report: CompanyReport) => {
-    try {
-      await fetch("/api/discord", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          report,
-          applicant: getApplicantSettings(),
-        }),
-      });
-    } catch {
-      /* Discord is optional */
     }
   }, []);
 
@@ -200,7 +184,6 @@ export function ChatInterface({ model }: ChatInterfaceProps) {
           report,
         },
       ]);
-      await notifyDiscord(report);
     } catch (error) {
       const msg = error instanceof Error ? error.message : "Something went wrong";
       setMessages((prev) => [

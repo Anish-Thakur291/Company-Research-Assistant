@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2, MessageSquare, Save, XCircle } from "lucide-react";
+import { ArrowLeft, Save } from "lucide-react";
 import { ConfigStatus } from "@/components/ConfigStatus";
 import type { ApplicantSettings } from "@/types";
 
@@ -41,32 +41,17 @@ export default function SettingsPage() {
           Back to Research
         </Link>
 
-        <h1 className="text-2xl font-bold text-white">Discord Integration</h1>
+        <h1 className="text-2xl font-bold text-white">Settings</h1>
         <p className="mt-2 text-sm text-slate-400">
-          Configure applicant details and verify Discord server settings.
+          Configure applicant details and verify server settings.
         </p>
 
         <div className="mt-8 space-y-6">
           <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-6">
-            <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-slate-400">
-              <MessageSquare className="h-4 w-4" />
+            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-slate-400">
               Server Environment
             </h2>
             <ConfigStatus />
-            <div className="mt-4 space-y-2 text-xs text-slate-500">
-              <p className="flex items-center gap-2">
-                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                DISCORD_BOT_TOKEN — set in Vercel environment variables
-              </p>
-              <p className="flex items-center gap-2">
-                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                DISCORD_CHANNEL_ID — set in Vercel environment variables
-              </p>
-              <p className="flex items-center gap-2">
-                <XCircle className="h-3.5 w-3.5 text-slate-600" />
-                Tokens are never stored in the browser for security
-              </p>
-            </div>
           </div>
 
           <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-6">
@@ -74,7 +59,7 @@ export default function SettingsPage() {
               Applicant Details
             </h2>
             <p className="mb-4 text-xs text-slate-500">
-              These details are included when reports are automatically sent to Discord.
+              These details are stored locally in your browser for report context.
             </p>
             <div className="space-y-3">
               <input
