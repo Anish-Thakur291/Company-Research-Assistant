@@ -1,36 +1,141 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Company Research Assistant
+
+AI-powered company research tool that crawls websites, searches public sources via Serper.dev, analyzes data with OpenRouter AI, identifies competitors, and generates downloadable PDF reports.
+
+## Features
+
+- **Dual input** — company name or website URL
+- **Website crawling** — discovers Home, About, Products, Services, Contact, Pricing pages
+- **Serper.dev search** — official website lookup, contact info, competitor research
+- **OpenRouter AI** — user-selectable model for summaries, pain points, competitor analysis
+- **ChatGPT-style UI** — interactive chat with live progress indicators
+- **PDF reports** — one-click professional downloadable reports
+- **Discord integration** (bonus) — auto-sends report + applicant details to a Discord channel
+
+## Tech Stack
+
+- **Framework:** Next.js 16 (App Router)
+- **UI:** Tailwind CSS, Lucide icons
+- **Crawling:** Cheerio + native fetch
+- **Search:** Serper.dev API
+- **AI:** OpenRouter API
+- **PDF:** PDFKit
+- **Deployment:** Vercel
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 18+
+- [OpenRouter](https://openrouter.ai/) API key
+- [Serper.dev](https://serper.dev/) API key
+- (Optional) Discord Bot Token + Channel ID
+
+### Installation
+
+```bash
+git clone <your-repo-url>
+cd company-research-assistant
+npm install
+cp .env.example .env.local
+```
+
+Edit `.env.local` with your API keys:
+
+```env
+OPENROUTER_API_KEY=sk-or-v1-...
+SERPER_API_KEY=your_serper_key
+DISCORD_BOT_TOKEN=your_bot_token        # optional
+DISCORD_CHANNEL_ID=your_channel_id      # optional
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+```
+
+### Run locally
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Build
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build
+npm start
+```
 
-## Learn More
+## Environment Variables
 
-To learn more about Next.js, take a look at the following resources:
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `OPENROUTER_API_KEY` | Yes | API key for OpenRouter AI models |
+| `SERPER_API_KEY` | Yes | API key for Serper.dev Google search |
+| `DISCORD_BOT_TOKEN` | No | Discord bot token for report notifications |
+| `DISCORD_CHANNEL_ID` | No | Discord channel ID to post reports |
+| `NEXT_PUBLIC_APP_URL` | No | Public app URL (OpenRouter referer header) |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Usage
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. Select an AI model from the sidebar
+2. Enter a company name (e.g. `Microsoft`) or URL (e.g. `https://stripe.com`)
+3. Press **Enter** to start research
+4. Watch progress: Searching → Crawling → Collecting → Analyzing → Generating
+5. View the report in chat and click **Download PDF**
 
-## Deploy on Vercel
+### Discord Integration
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. Go to **Settings** (sidebar or `/settings`)
+2. Enter your **Applicant Name** and **Applicant Email**
+3. Set `DISCORD_BOT_TOKEN` and `DISCORD_CHANNEL_ID` in server environment variables
+4. After each successful report, the app auto-posts to Discord with the PDF attached
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Project Structure
+
+```
+src/
+├── app/
+│   ├── api/
+│   │   ├── config/      # Server config status
+│   │   ├── discord/     # Discord notification
+│   │   ├── models/      # OpenRouter model list
+│   │   ├── pdf/         # PDF generation
+│   │   └── research/    # Main research pipeline (SSE)
+│   ├── settings/        # Discord & applicant settings
+│   └── page.tsx         # Main chat interface
+├── components/          # UI components
+├── lib/
+│   ├── crawler.ts       # Website crawler
+│   ├── discord.ts       # Discord bot integration
+│   ├── openrouter.ts    # AI analysis
+│   ├── pdf-generator.ts # PDF report builder
+│   ├── research.ts      # Research orchestration
+│   ├── serper.ts        # Serper search
+│   └── utils.ts         # Helpers
+└── types/               # TypeScript types
+```
+
+## Deploy to Vercel
+
+1. Push code to GitHub
+2. Import project in [Vercel](https://vercel.com)
+3. Add environment variables in Project Settings → Environment Variables
+4. Deploy
+
+```bash
+npx vercel --prod
+```
+
+## API Routes
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| POST | `/api/research` | Run full research pipeline (SSE stream) |
+| GET | `/api/models` | List OpenRouter models |
+| POST | `/api/pdf` | Generate PDF from report JSON |
+| POST | `/api/discord` | Send report to Discord |
+| GET | `/api/config` | Check which services are configured |
+
+## License
+
+MIT
