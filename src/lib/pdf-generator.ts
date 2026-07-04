@@ -17,7 +17,12 @@ function ensureSpace(doc: InstanceType<typeof PDFDocument>, needed = 80) {
 }
 
 export async function generatePdfReport(report: CompanyReport): Promise<Buffer> {
-  const doc = new PDFDocument({ margin: 50, size: "A4" });
+  // Use only Courier font - works in all environments including serverless
+  const doc = new PDFDocument({ 
+    margin: 50, 
+    size: "A4",
+    bufferPages: true
+  });
   const bufferPromise = collectPdfBuffer(doc);
 
   const accent = "#4f46e5";
@@ -29,42 +34,36 @@ export async function generatePdfReport(report: CompanyReport): Promise<Buffer> 
   const section = (title: string) => {
     ensureSpace(doc, 60);
     doc.moveDown(0.8);
-    doc.fontSize(12).font("Helvetica-Bold").fillColor(accent).text(title);
-    doc
-      .moveTo(margin, doc.y + 2)
-      .lineTo(doc.page.width - margin, doc.y + 2)
-      .strokeColor("#cbd5e1")
-      .lineWidth(1)
-      .stroke();
+    doc.fontSize(12).fillColor(accent).text(title, { underline: true });
     doc.moveDown(0.6);
     doc.fillColor(text);
   };
 
   const field = (label: string, value: string) => {
     ensureSpace(doc, 20);
-    doc.fontSize(10).font("Helvetica-Bold").fillColor(muted).text(`${label}: `, {
+    doc.fontSize(10).fillColor(muted).text(`${label}: `, {
       continued: true,
     });
-    doc.font("Helvetica").fillColor(text).text(value || "Not available");
+    doc.fillColor(text).text(value || "Not available");
   };
 
   const bulletList = (items: string[]) => {
     if (items.length === 0) {
-      doc.fontSize(10).font("Helvetica").fillColor(muted).text("Not available");
+      doc.fontSize(10).fillColor(muted).text("Not available");
       return;
     }
     items.forEach((item) => {
       ensureSpace(doc, 20);
-      doc.fontSize(10).font("Helvetica").fillColor(text).text(`• ${item}`, {
+      doc.fontSize(10).fillColor(text).text(`• ${item}`, {
         indent: 10,
         width,
       });
     });
   };
 
-  doc.fontSize(20).font("Helvetica-Bold").fillColor(accent).text("Company Research Report");
+  doc.fontSize(20).fillColor(accent).text("Company Research Report");
   doc.moveDown(0.3);
-  doc.fontSize(10).font("Helvetica").fillColor(muted).text(
+  doc.fontSize(10).fillColor(muted).text(
     `Generated on ${new Date(report.generatedAt).toLocaleDateString("en-US", {
       year: "numeric",
       month: "long",
@@ -89,7 +88,7 @@ export async function generatePdfReport(report: CompanyReport): Promise<Buffer> 
 
   section("AI Summary");
   ensureSpace(doc, 40);
-  doc.fontSize(10).font("Helvetica").fillColor(text).text(report.summary || "Not available", {
+  doc.fontSize(10).fillColor(text).text(report.summary || "Not available", {
     align: "justify",
     width,
   });
@@ -107,7 +106,7 @@ export async function generatePdfReport(report: CompanyReport): Promise<Buffer> 
 
   swotGroups.forEach(([label, items]) => {
     ensureSpace(doc, 30);
-    doc.fontSize(10).font("Helvetica-Bold").fillColor(accent).text(label);
+    doc.fontSize(10).fillColor(accent).text(label);
     doc.moveDown(0.2);
     bulletList(items);
     doc.moveDown(0.4);
@@ -115,34 +114,34 @@ export async function generatePdfReport(report: CompanyReport): Promise<Buffer> 
 
   section("Competitors");
   if (report.competitors.length === 0) {
-    doc.fontSize(10).font("Helvetica").fillColor(muted).text("No competitors identified.");
+    doc.fontSize(10).fillColor(muted).text("No competitors identified.");
   } else {
     report.competitors.forEach((comp, i) => {
       ensureSpace(doc, 30);
-      doc.fontSize(10).font("Helvetica-Bold").fillColor(text).text(`${i + 1}. ${comp.name}`);
-      doc.font("Helvetica").fillColor(muted).text(comp.website, { link: comp.website });
+      doc.fontSize(10).fillColor(text).text(`${i + 1}. ${comp.name}`);
+      doc.fillColor(muted).text(comp.website, { link: comp.website });
       doc.moveDown(0.3);
     });
   }
 
   section("Pages Crawled");
   if (report.pagesCrawled.length === 0) {
-    doc.fontSize(10).font("Helvetica").fillColor(muted).text("No pages crawled.");
+    doc.fontSize(10).fillColor(muted).text("No pages crawled.");
   } else {
     report.pagesCrawled.forEach((url) => {
       ensureSpace(doc, 20);
-      doc.fontSize(9).font("Helvetica").fillColor(text).text(`• ${url}`, { link: url, width });
+      doc.fontSize(9).fillColor(text).text(`• ${url}`, { link: url, width });
     });
   }
 
   section("Sources");
   if (report.sources.length === 0) {
-    doc.fontSize(10).font("Helvetica").fillColor(muted).text("No sources recorded.");
+    doc.fontSize(10).fillColor(muted).text("No sources recorded.");
   } else {
     report.sources.forEach((source) => {
       ensureSpace(doc, 30);
-      doc.fontSize(10).font("Helvetica-Bold").fillColor(text).text(source.title);
-      doc.fontSize(9).font("Helvetica").fillColor(muted).text(source.url, { link: source.url, width });
+      doc.fontSize(10).fillColor(text).text(source.title);
+      doc.fontSize(9).fillColor(muted).text(source.url, { link: source.url, width });
       doc.moveDown(0.3);
     });
   }

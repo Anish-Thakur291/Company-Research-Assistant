@@ -56,16 +56,24 @@ export function ChatInterface({ model }: ChatInterfaceProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(report),
       });
-      if (!res.ok) throw new Error("PDF generation failed");
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ error: "Unknown error" }));
+        throw new Error(error.error || `PDF generation failed: ${res.status}`);
+      }
       const blob = await res.blob();
+      if (blob.size === 0) {
+        throw new Error("PDF blob is empty");
+      }
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
       a.download = `${report.companyName.replace(/[^a-z0-9]/gi, "_")}_report.pdf`;
       a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      alert("Failed to download PDF");
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to download PDF";
+      alert(`Failed to download PDF: ${message}`);
+      console.error("PDF download error:", error);
     } finally {
       setDownloading(false);
     }
