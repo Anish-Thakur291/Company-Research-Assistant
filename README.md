@@ -57,6 +57,7 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
+versal : https://company-research-assistant-one.vercel.app/
 
 ### Build
 
