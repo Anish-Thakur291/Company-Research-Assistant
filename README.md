@@ -45,8 +45,8 @@ Edit `.env.local` with your API keys:
 ```env
 OPENROUTER_API_KEY=sk-or-v1-...
 SERPER_API_KEY=your_serper_key
-DISCORD_BOT_TOKEN=your_bot_token        # optional
-DISCORD_CHANNEL_ID=your_channel_id      # optional
+DISCORD_BOT_TOKEN=your_bot_token       
+DISCORD_CHANNEL_ID=your_channel_id      
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
